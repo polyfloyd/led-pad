@@ -17,7 +17,7 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 const char* MQTT_TOPIC = "bitlair/leds/lounge";
-const char* mqttDebugTopic = "bitlair/debug";
+const char* MQTT_TOPIC_DEBUG = "bitlair/debug";
 const uint8_t inputPin = D2; // active high
 const unsigned int waitDuration = 6000; // Milliseconds to wait after press
 
@@ -55,40 +55,30 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
-    char buf[64] = {0};
-    snprintf(buf, sizeof(buf), "display size: %dx%d", display.width(), display.height());
-    Serial.println(buf);
-
-    // We start by connecting to a WiFi network
-    Serial.print("Connecting to ");
+    // Connect to the wireless network
+    Serial.print("Connecting to: ");
     Serial.println(ssid);
-
     WiFi.begin(ssid, pass);
     while (WiFi.status() != WL_CONNECTED) {
         delay(100);
         Serial.print(".");
     }
     Serial.println();
-
     Serial.print("WiFi connected to: ");
     Serial.println(ssid);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-
     Serial.println();
 
     mqttClient.setServer(mqtt_server, 1883);
     mqttClient.setCallback(mqttCallback);
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-    /*Serial.print("Message arrived [");
-      Serial.print(topic);
-      Serial.print("] ");
-      for (int i = 0; i < length; i++) {
-      Serial.print((char)payload[i]);
-      }
-      Serial.println();*/
+void mqttCallback(char* topic, byte* payload, unsigned int len) {
+    payload[len] = 0;
+    Serial.print(topic);
+    Serial.print(" <- ");
+    Serial.println((char*)payload);
 }
 
 void reconnectMQTT() {
@@ -102,9 +92,9 @@ void reconnectMQTT() {
             char buf[64] = {0};
             snprintf(buf, sizeof(buf), "%s (re)connect #%ld", "projectName", connectCount);
             Serial.println(buf);
-            mqttClient.publish(mqttDebugTopic, buf);
+            mqttClient.publish(MQTT_TOPIC_DEBUG, buf);
             // ... and resubscribe
-//            mqttClient.subscribe(mqttTopic);
+            mqttClient.subscribe(MQTT_TOPIC);
         } else {
             Serial.print("failed, rc=");
             Serial.print(mqttClient.state());
@@ -153,10 +143,6 @@ uint16_t color(uint8_t r, uint8_t g, uint8_t b) {
     // green = 6 bits green at 0x07E0
     // blue = 5 bits at 0x001F
     return uint16_t(b >> 3) << 11 | uint16_t(g >> 2) << 5 | uint16_t(r >> 3);
-}
-
-uint8_t bmul(uint8_t a, uint8_t b) {
-    return (uint16_t(a) * uint16_t(a)) >> 8;
 }
 
 void hsv2rgb(float h, float s, float v, float *r, float *g, float *b) {
@@ -302,9 +288,6 @@ void loop() {
 
     if (dx != 0 || dy != 0) {
         uint8_t r, g, b;
-        Serial.print(cursorX);
-        Serial.print(", ");
-        Serial.println(cursorY);
         colorSpace(cursorX, cursorY, &r, &g, &b);
 
         char buf[7] = {0};
