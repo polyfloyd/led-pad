@@ -16,7 +16,7 @@ char ID[9] = {0};
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-const char* mqttTopic = "bitlair/leds/lounge";
+const char* MQTT_TOPIC = "bitlair/leds/lounge";
 const char* mqttDebugTopic = "bitlair/debug";
 const uint8_t inputPin = D2; // active high
 const unsigned int waitDuration = 6000; // Milliseconds to wait after press
@@ -27,9 +27,9 @@ const int JOY_BTN = D1;
 // vertical outputs from the joystick, we use a 4051 analog multiplexer.
 const int AMUX_S0 = D0;
 
-const int OLED_RES  = D2;
-const int OLED_DC   = D3;
-const int OLED_CS   = D4;
+const int OLED_RES = D2;
+const int OLED_DC  = D3;
+const int OLED_CS  = D4;
 
 Adafruit_ST7735 display = Adafruit_ST7735(OLED_CS, OLED_DC, OLED_RES);
 
@@ -148,12 +148,11 @@ void readJoystickPosition(float *dx, float *dy) {
     if (fabs(*dy) < 0.05) *dy = 0;
 }
 
-
 uint16_t color(uint8_t r, uint8_t g, uint8_t b) {
     // red = 5 bits at 0xF800
     // green = 6 bits green at 0x07E0
     // blue = 5 bits at 0x001F
-    return uint16_t(r >> 3) << 11 | uint16_t(g >> 2) << 5 | uint16_t(b >> 3);
+    return uint16_t(b >> 3) << 11 | uint16_t(g >> 2) << 5 | uint16_t(r >> 3);
 }
 
 uint8_t bmul(uint8_t a, uint8_t b) {
@@ -192,7 +191,6 @@ void hsv2rgb(float h, float s, float v, float *r, float *g, float *b) {
         *g = v;
         *b = t;
         break;
-
     case 3:
         *r = p;
         *g = q;
@@ -212,13 +210,25 @@ void hsv2rgb(float h, float s, float v, float *r, float *g, float *b) {
     }
 }
 
+void colorSpace(float x, float y, uint8_t *r, uint8_t *g, uint8_t *b) {
+    float rf, gf, bf;
+    if (x < .5) {
+        hsv2rgb(y * 360.0, 1, x * 2, &rf, &gf, &bf);
+    } else {
+        hsv2rgb(y * 360.0, 1 - (x - 0.5) * 2, 1, &rf, &gf, &bf);
+    }
+    *r = rf * 255;
+    *g = gf * 255;
+    *b = bf * 255;
+}
+
 void renderUI(float cursorX, float cursorY) {
     static bool init = true;
     static int prevIX = -1;
     static int prevIY = -1;
 
-    int ix = cursorX * (display.width() - 2) + 1;
-    int iy = cursorY * (display.height() - 2) + 1;
+    int ix = cursorX * (display.width() - 4) + 2;
+    int iy = cursorY * (display.height() - 4) + 2;
     if (ix == prevIX && iy == prevIY) return;
 
     display.startWrite();
@@ -226,12 +236,13 @@ void renderUI(float cursorX, float cursorY) {
         init = false;
         for (int x = 0; x < display.width(); x++) {
             for (int y = 0; y < display.height(); y++) {
-                float h = float(y) / float(display.height()) * 360;
-                float s = 1;
-                float v = float(x) / float(display.width() - 1);
-                float r, g, b;
-                hsv2rgb(h, s, v, &r, &g, &b);
-                display.writePixel(x, y, color(r * 255, g * 255, b * 255));
+                uint8_t r, g, b;
+                colorSpace(
+                    float(x) / float(display.width()),
+                    float(y) / float(display.height()),
+                    &r, &g, &b
+                );
+                display.writePixel(x, y, color(r, g, b));
             }
         }
     }
@@ -239,21 +250,23 @@ void renderUI(float cursorX, float cursorY) {
     // clear previous cursor
     for (int x = 0; x < display.width(); x++) {
         int y = prevIY;
-        float h = float(y) / float(display.height()) * 360;
-        float s = 1;
-        float v = float(x) / float(display.width() - 1);
-        float r, g, b;
-        hsv2rgb(h, s, v, &r, &g, &b);
-        display.writePixel(x, y, color(r * 255, g * 255, b * 255));
+        uint8_t r, g, b;
+        colorSpace(
+            float(x) / float(display.width()),
+            float(y) / float(display.height()),
+            &r, &g, &b
+        );
+        display.writePixel(x, y, color(r, g, b));
     }
     for (int y = 0; y < display.height(); y++) {
         int x = prevIX;
-        float h = float(y) / float(display.height()) * 360;
-        float s = 1;
-        float v = float(x) / float(display.width() - 1);
-        float r, g, b;
-        hsv2rgb(h, s, v, &r, &g, &b);
-        display.writePixel(x, y, color(r * 255, g * 255, b * 255));
+        uint8_t r, g, b;
+        colorSpace(
+            float(x) / float(display.width()),
+            float(y) / float(display.height()),
+            &r, &g, &b
+        );
+        display.writePixel(x, y, color(r, g, b));
     }
 
     for (int x = 0; x < display.width(); x++) {
@@ -279,12 +292,26 @@ void loop() {
 
     float dx, dy;
     readJoystickPosition(&dx, &dy);
-    cursorX += dx * 0.1;
-    cursorY += dy * 0.1;
+    cursorX += dx * 0.025;
+    cursorY += dy * 0.025;
+
     if (cursorX < 0.0) cursorX = 0.0;
     if (cursorX > 1.0) cursorX = 1.0;
     if (cursorY < 0.0) cursorY = 0.0;
     if (cursorY > 1.0) cursorY = 1.0;
+
+    if (dx != 0 || dy != 0) {
+        uint8_t r, g, b;
+        Serial.print(cursorX);
+        Serial.print(", ");
+        Serial.println(cursorY);
+        colorSpace(cursorX, cursorY, &r, &g, &b);
+
+        char buf[7] = {0};
+        snprintf(buf, sizeof(buf), "%02x%02x%02x", r, g, b);
+        mqttPublish(MQTT_TOPIC, buf);
+        delay(10);
+    }
 
     renderUI(cursorX, cursorY);
 
