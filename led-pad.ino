@@ -46,7 +46,7 @@ void setup() {
 
     pinMode(A0, INPUT);
     pinMode(AMUX_S0, OUTPUT);
-    pinMode(JOY_BTN, INPUT);
+    pinMode(JOY_BTN, INPUT_PULLUP);
 
     display.initR(INITR_MINI160x80);
     display.invertDisplay(true);
@@ -272,6 +272,13 @@ void loop() {
         reconnectMQTT();
     }
 
+    bool party;
+    if (party = !digitalRead(JOY_BTN)) {
+        mqttPublish(MQTT_TOPIC, "PARTY");
+        while (!digitalRead(JOY_BTN)) yield();
+        delay(1000);
+    }
+
     static float cursorX = .5;
     static float cursorY = .5;
 
@@ -279,12 +286,11 @@ void loop() {
     readJoystickPosition(&dx, &dy);
     cursorX += dx * 0.025;
     cursorY += dy * 0.025;
-
     if (cursorX < 0.0) cursorX = 0.0;
     if (cursorX > 1.0) cursorX = 1.0;
     cursorY = fmod(cursorY + 1, 1);
 
-    if (dx != 0 || dy != 0) {
+    if (dx != 0 || dy != 0 || party) {
         uint8_t r, g, b;
         colorSpace(cursorX, cursorY, &r, &g, &b);
 
