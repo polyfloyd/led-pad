@@ -283,8 +283,7 @@ void loop() {
 
     if (cursorX < 0.0) cursorX = 0.0;
     if (cursorX > 1.0) cursorX = 1.0;
-    if (cursorY < 0.0) cursorY = 0.0;
-    if (cursorY > 1.0) cursorY = 1.0;
+    cursorY = fmod(cursorY + 1, 1);
 
     if (dx != 0 || dy != 0) {
         uint8_t r, g, b;
