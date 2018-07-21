@@ -22,14 +22,14 @@ const uint8_t inputPin = D2; // active high
 const unsigned int waitDuration = 6000; // Milliseconds to wait after press
 
 
-const int JOY_BTN = D1;
+const int JOY_BTN = D4;
 // The ESP8266 has only one analog pin. So to measure both the horizontal and
 // vertical outputs from the joystick, we use a 4051 analog multiplexer.
-const int AMUX_S0 = D0;
+const int AMUX_S0 = D8;
 
-const int OLED_RES = D2;
-const int OLED_DC  = D3;
-const int OLED_CS  = D4;
+const int OLED_RES = D3;
+const int OLED_DC  = D2;
+const int OLED_CS  = D1;
 
 Adafruit_ST7735 display = Adafruit_ST7735(OLED_CS, OLED_DC, OLED_RES);
 
